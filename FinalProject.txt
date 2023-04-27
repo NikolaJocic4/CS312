@@ -1,0 +1,161 @@
+drop table pricing;
+////////////////////////////////CREATE TABLE//////////////////////////////////////////////////////////////
+create table pricing(
+roomID varchar2(50),
+room_type varchar2(50),
+price number,
+room_date date
+);
+
+select * from room;
+//////////////////////////////INSERT INTO/////////////////////////////////////////////////////////////////
+insert into pricing
+select room_id, types, decode(types, 'Twin', 250,
+                            'Presidential Suite', 500,
+                            'Cabana', 300,
+                            'Bungalov', 600,
+                            'Conecting Room', 400,
+                            'Single', 150, 0) Price, to_date('01-04-2015','DD-MM-YYYY')
+from room; 
+
+insert into pricing
+select room_id, types, decode(types, 'Twin', 250+50,
+                            'Presidential Suite', 500+75,
+                            'Cabana', 300+75,
+                            'Bungalov', 600+75,
+                            'Conecting Room', 400+75,
+                            'Single', 150+75, 0) Price, to_date('01-04-2012','DD-MM-YYYY')
+from room; 
+
+select * from pricing;
+
+////////////////////////////////////////////ALTER TABLE////////////////////////////////////////////////////////////////
+ALTER TABLE room 
+ADD room_cost number; 
+
+select * from room;
+////////////////////////////////////////UPDATE STATEMENT///////////////////////////////////////////////////////////////
+update room 
+set room_cost= decode(types, 'Twin', 250,
+                            'Presidential Suite', 500,
+                            'Cabana', 300,
+                            'Bungalov', 600,
+                            'Conecting Room', 400,
+                            'Single', 150, 0);
+//////////////////////////////////TRIGGER//////////////////////////////////////////////////////////////////////////////
+create or replace trigger new_room_input
+after insert or update of types
+on room
+for each row
+declare
+	new_roomID room.room_id%TYPE;
+	new_type room.types%TYPE;
+        new_price number;
+begin
+IF updating then
+	new_roomID := :new.room_id;
+	new_type := :new.types;
+        new_price := :new.room_cost;
+	insert into pricing values
+	(new_roomID, new_type, new_price);
+END IF;
+IF inserting then
+	new_roomID := :new.room_id;
+	new_type := :new.types;
+        new_price := :new.room_cost;
+	insert into pricing values
+	(new_roomID, new_type, new_price);
+	END IF;
+END;
+
+select * from booking;
+/////////////////////////////VIEW/////////////////////////////////////////////////////////////////////////////////////////////////////////
+create or replace view view1 as(
+select
+              b.checkin_date,
+              b.room_id,
+              pr.price
+from pricing pr join booking b on (pr.roomID=b.room_id)
+where pr.room_date = (select max(room_date) from pricing
+where b.checkin_date >= pr.room_date
+));
+/////////////////////////////FUNCTION/////////////////////////////////////////////////////////////////////////////////////////////////////
+create or replace function getCurrentPrice(rm_id room.room_id%type, checkin_date date)
+return number is
+price_current number;
+begin
+select v.price into price_current from view1 v
+where checkin_date = v.checkin_date and v.room_id=rm_id;
+return price_current;
+end getCurrentPrice;
+
+//////////////////////////////////////ANONYMOUS BLOCK//////////////////////////////////////////////////////////////////////////////////////
+begin
+dbms_output.put_line('Current room price: ' || getCurrentPrice('R_010', '24-Jul-2011'));
+end;
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+select * from staff;
+
+select substr(name, instr(name, ' ')) from staff;
+
+/////////////////////////////////////////HIERARCHICAL QUERY///////////////////////////////////////////////////////////////////////////
+SELECT LEVEL, LPAD(' ',2*(LEVEL - 1), '*') || substr(name, instr(name, ' ')) "Staff Member",
+       staff_id, manager_id
+FROM staff
+START WITH manager_id IS NULL
+CONNECT BY PRIOR staff_id = manager_id
+ORDER SIBLINGS BY substr(name, instr(name, ' '));
+
+
+////////////////////////////////////////FUNCTION//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+create or replace function orders_costs (cust_id booking.customer_id%type, check_start_dt date, check_end_dt  date)
+return number
+is
+   total_orders number := 0;
+   total_cost number := 0;
+
+   cursor my_curs is
+	  select sum((c.rental_period * b.price) * m.Discounted_Coefficient), count(distinct b.customer_id)
+	  from booking b Join room r on (b.room_ID = r.Room_ID) JOIN customer c on (b.customer_ID = c.Customer_ID) join members m on (c.member_type = m.member_type) 
+          where b.customer_id = cust_id
+	  and b.checkin_date between check_start_dt and check_end_dt group by b.customer_id;    
+     
+
+begin
+open my_curs;
+loop
+	fetch my_curs into total_cost, total_orders;
+	if my_curs%notfound then exit;
+	end if;
+end loop;	
+close my_curs;
+dbms_output.put_line('Total cost of orders: '||total_cost);	
+return total_orders;
+end orders_costs;
+
+declare 
+total_orders number;
+begin
+   total_orders := orders_costs('C_005', '01-Jan-2013', '31-Dec-2017');
+   dbms_output.put_line('Total num of orders: '||total_orders);
+end;
+
+
+////////////////////////////////////////////CURSORS/////////////////////////////////////////////////////////////////////////
+declare 
+cursor salary_cursor is
+select s.name, j.job
+from staff s join jobs j
+on (s.job_id = j.job_id)
+where (j.base_pay + average_tips) > 1000;
+total_salary salary_cursor%ROWTYPE;
+begin 
+open salary_cursor;
+loop
+fetch salary_cursor into total_salary;
+exit when salary_cursor%notfound;
+dbms_output.put_line(total_salary.name || ' as a ' || total_salary.job || ' earns more than a 1000 Euros a month.');
+end loop;
+close salary_cursor;
+end;
+

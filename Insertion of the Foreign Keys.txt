@@ -1,0 +1,23 @@
+alter table Customer
+add CONSTRAINT FK_Member_type FOREIGN KEY (Member_type) REFERENCES Members (Member_type);
+
+alter table Booking
+add CONSTRAINT FK_Customer_ID FOREIGN KEY (Customer_ID) REFERENCES Customer (Customer_ID);
+
+alter table Booking
+add CONSTRAINT FK_Room_ID FOREIGN KEY (Room_ID) REFERENCES Room (Room_ID);
+
+alter table Facilities
+add CONSTRAINT FK_Member_type FOREIGN KEY (Member_type) REFERENCES Members (Member_type);
+
+alter table Staff
+add CONSTRAINT FK_Job_ID FOREIGN KEY (Job_ID) REFERENCES Jobs (Job_ID);
+
+alter table Staff
+add CONSTRAINT FK_Type_ID FOREIGN KEY (Type_ID) REFERENCES Facilities (Type_ID);
+
+alter table Jobs
+add CONSTRAINT FK_Customer_ID FOREIGN KEY (Customer_ID) REFERENCES Customer (Customer_ID);
+
+alter table Customer
+add CONSTRAINT FK_Customer_ID FOREIGN KEY (Type_ID) REFERENCES Facilities (Type_ID);
